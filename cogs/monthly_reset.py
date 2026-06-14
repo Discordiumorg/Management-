@@ -43,16 +43,16 @@ class MonthlyReset(commands.Cog):
                 channel = guild.get_channel(int(log_channel_id))
                 if channel:
                     embed = discord.Embed(
-                        title="🔄 Monatlicher Reset",
+                        title="🔄 Monthly Reset",
                         description=(
-                            f"Alle Infractions wurden für den neuen Monat zurückgesetzt.\n\n"
-                            f"**Gelöschte Infractions:** {deleted}\n"
+                            f"All infractions have been reset for the new month.\n\n"
+                            f"**Deleted Infractions:** {deleted}\n"
                             f"**Datum:** <t:{int(now.timestamp())}:F>"
                         ),
                         color=0x5865F2,
                         timestamp=now,
                     )
-                    embed.set_footer(text="Automatischer monatlicher Reset")
+                    embed.set_footer(text="Automatic monthly reset")
                     await channel.send(embed=embed)
 
     @monthly_reset_task.before_loop

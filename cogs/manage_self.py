@@ -29,8 +29,8 @@ def parse_duration(duration_str: str) -> timedelta | None:
 
 class ResignModal(discord.ui.Modal, title="Resign"):
     reason = discord.ui.TextInput(
-        label="Grund für die Kündigung",
-        placeholder="Warum möchtest du kündigen?",
+        label="Reason for resignation",
+        placeholder="Why do you want to resign?",
         style=discord.TextStyle.paragraph,
         required=True,
         max_length=1000,
@@ -56,13 +56,13 @@ class ResignModal(discord.ui.Modal, title="Resign"):
             try:
                 await member.remove_roles(*roles_to_remove, reason=f"Resignation: {self.reason.value}")
             except discord.Forbidden:
-                await interaction.followup.send(embed=error_embed("Fehler", "Ich habe keine Berechtigung, Rollen zu entfernen."), ephemeral=True)
+                await interaction.followup.send(embed=error_embed("Error", "I do not have permission to remove roles."), ephemeral=True)
                 return
 
         try:
             dm_embed = discord.Embed(
-                title="📋 Kündigung bestätigt",
-                description=f"Deine Kündigung bei **{guild.name}** wurde verarbeitet.\n\n**Grund:** {self.reason.value}",
+                title="📋 Resignation confirmed",
+                description=f"Your resignation from **{guild.name}** has been processed.\n\n**Reason:** {self.reason.value}",
                 color=0xE74C3C,
                 timestamp=datetime.now(timezone.utc),
             )
@@ -74,25 +74,25 @@ class ResignModal(discord.ui.Modal, title="Resign"):
         if log_channel_id:
             channel = guild.get_channel(int(log_channel_id))
             if channel:
-                embed = log_embed("Kündigung (Resign)", member, member, self.reason.value, 0xE74C3C)
+                embed = log_embed("Resignation (Resign)", member, member, self.reason.value, 0xE74C3C)
                 await channel.send(embed=embed)
 
         await interaction.followup.send(
-            embed=success_embed("Kündigung eingereicht", "Deine Kündigung wurde erfolgreich verarbeitet. Alle Staff-Rollen wurden entfernt."),
+            embed=success_embed("Resignation submitted", "Your resignation has been successfully processed. All staff roles have been removed."),
             ephemeral=True,
         )
 
 
-class LOARequestModal(discord.ui.Modal, title="Leave of Absence anfragen"):
+class LOARequestModal(discord.ui.Modal, title="Request Leave of Absence"):
     duration = discord.ui.TextInput(
-        label="Wie lange? (z.B. 2d, 3h, 1w)",
-        placeholder="z.B. 2d (m/h/d/w)",
+        label="How long? (e.g. 2d, 3h, 1w)",
+        placeholder="e.g. 2d (m/h/d/w)",
         required=True,
         max_length=10,
     )
     reason = discord.ui.TextInput(
-        label="Grund für die Abwesenheit",
-        placeholder="Nur für Leader sichtbar",
+        label="Reason for leave",
+        placeholder="Visible to leaders only",
         style=discord.TextStyle.paragraph,
         required=True,
         max_length=1000,
@@ -111,7 +111,7 @@ class LOARequestModal(discord.ui.Modal, title="Leave of Absence anfragen"):
         delta = parse_duration(self.duration.value)
         if delta is None:
             await interaction.followup.send(
-                embed=error_embed("Ungültiges Format", "Bitte gib die Dauer im Format `2d`, `3h`, `1w`, `30m` an."),
+                embed=error_embed("Invalid format", "Please specify the duration in the format `2d`, `3h`, `1w`, `30m`."),
                 ephemeral=True,
             )
             return
@@ -122,7 +122,7 @@ class LOARequestModal(discord.ui.Modal, title="Leave of Absence anfragen"):
         try:
             current_nick = member.display_name
             if not current_nick.startswith("[LOA] "):
-                await member.edit(nick=f"[LOA] {current_nick}"[:32], reason="LOA gestartet")
+                await member.edit(nick=f"[LOA] {current_nick}"[:32], reason="LOA started")
         except discord.Forbidden:
             pass
 
@@ -130,13 +130,13 @@ class LOARequestModal(discord.ui.Modal, title="Leave of Absence anfragen"):
         if log_channel_id:
             channel = guild.get_channel(int(log_channel_id))
             if channel:
-                embed = log_embed("LOA gestartet", member, member, self.reason.value, 0xF39C12, Dauer=self.duration.value)
+                embed = log_embed("LOA started", member, member, self.reason.value, 0xF39C12, Duration=self.duration.value)
                 await channel.send(embed=embed)
 
         try:
             dm_embed = discord.Embed(
-                title="🏖️ LOA bestätigt",
-                description=f"Dein LOA bei **{guild.name}** wurde eingetragen.\n\n**Dauer:** {self.duration.value}\n**Ende:** <t:{int((datetime.now(timezone.utc) + delta).timestamp())}:F>",
+                title="🏖️ LOA confirmed",
+                description=f"Your LOA at **{guild.name}** has been recorded.\n\n**Duration:** {self.duration.value}\n**Ends:** <t:{int((datetime.now(timezone.utc) + delta).timestamp())}:F>",
                 color=0xF39C12,
                 timestamp=datetime.now(timezone.utc),
             )
@@ -145,7 +145,7 @@ class LOARequestModal(discord.ui.Modal, title="Leave of Absence anfragen"):
             pass
 
         await interaction.followup.send(
-            embed=success_embed("LOA eingetragen", f"Dein LOA wurde für **{self.duration.value}** eingetragen. Dein Nickname wurde aktualisiert."),
+            embed=success_embed("LOA recorded", f"Your LOA has been recorded for **{self.duration.value}**. Your nickname has been updated."),
             ephemeral=True,
         )
 
@@ -156,11 +156,11 @@ class LOAView(discord.ui.View):
         self.config = config
         self.is_in_loa = is_in_loa
 
-    @discord.ui.button(label="LOA anfragen", style=discord.ButtonStyle.primary, emoji="🏖️")
+    @discord.ui.button(label="Request LOA", style=discord.ButtonStyle.primary, emoji="🏖️")
     async def request_loa(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_modal(LOARequestModal(self.config))
 
-    @discord.ui.button(label="LOA entfernen", style=discord.ButtonStyle.danger, emoji="🔴")
+    @discord.ui.button(label="Remove LOA", style=discord.ButtonStyle.danger, emoji="🔴")
     async def remove_loa(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer(ephemeral=True)
         member = interaction.user
@@ -168,7 +168,7 @@ class LOAView(discord.ui.View):
 
         loa = await database.get_active_loa(str(member.id), str(guild.id))
         if not loa:
-            await interaction.followup.send(embed=error_embed("Kein LOA", "Du hast aktuell kein aktives LOA."), ephemeral=True)
+            await interaction.followup.send(embed=error_embed("No LOA", "You do not currently have an active LOA."), ephemeral=True)
             return
 
         await database.remove_loa(str(member.id), str(guild.id))
@@ -176,7 +176,7 @@ class LOAView(discord.ui.View):
         try:
             current_nick = member.display_name
             if current_nick.startswith("[LOA] "):
-                await member.edit(nick=current_nick[6:] or None, reason="LOA beendet")
+                await member.edit(nick=current_nick[6:] or None, reason="LOA ended")
         except discord.Forbidden:
             pass
 
@@ -185,10 +185,10 @@ class LOAView(discord.ui.View):
         if log_channel_id:
             channel = guild.get_channel(int(log_channel_id))
             if channel:
-                embed = log_embed("LOA beendet", member, member, "Selbst beendet", 0x2ECC71)
+                embed = log_embed("LOA ended", member, member, "Ended by self", 0x2ECC71)
                 await channel.send(embed=embed)
 
-        await interaction.followup.send(embed=success_embed("LOA beendet", "Dein LOA wurde entfernt und dein Nickname aktualisiert."), ephemeral=True)
+        await interaction.followup.send(embed=success_embed("LOA ended", "Your LOA has been removed and your nickname updated."), ephemeral=True)
 
 
 class ManageSelfView(discord.ui.View):
@@ -204,7 +204,7 @@ class ManageSelfView(discord.ui.View):
     async def loa(self, interaction: discord.Interaction, button: discord.ui.Button):
         loa = await database.get_active_loa(str(interaction.user.id), str(interaction.guild_id))
         is_in_loa = loa is not None
-        status_text = "Du bist aktuell **im LOA**." if is_in_loa else "Du bist aktuell **nicht im LOA**."
+        status_text = "You are currently **on LOA**." if is_in_loa else "You are currently **not on LOA**."
         embed = info_embed("Leave of Absence", status_text)
         view = LOAView(self.config, is_in_loa)
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
@@ -215,20 +215,20 @@ class ManageSelfView(discord.ui.View):
         infractions = await database.get_infractions(str(interaction.user.id), str(interaction.guild_id))
 
         if not infractions:
-            await interaction.followup.send(embed=success_embed("Infractions", "Du hast keine aktiven Infractions."), ephemeral=True)
+            await interaction.followup.send(embed=success_embed("Infractions", "You have no active infractions."), ephemeral=True)
             return
 
-        embed = discord.Embed(title="📋 Deine Infractions", color=0xE67E22, timestamp=datetime.now(timezone.utc))
+        embed = discord.Embed(title="📋 Your Infractions", color=0xE67E22, timestamp=datetime.now(timezone.utc))
         for inf in infractions[:10]:
             moderator = interaction.guild.get_member(int(inf["moderator_id"]))
             mod_text = moderator.mention if moderator else f"ID: {inf['moderator_id']}"
-            expires = f"\n*Läuft ab: <t:{int(datetime.fromisoformat(inf['expires_at']).timestamp())}:R>*" if inf.get("expires_at") else ""
+            expires = f"\n*Expires: <t:{int(datetime.fromisoformat(inf['expires_at']).timestamp())}:R>*" if inf.get("expires_at") else ""
             embed.add_field(
                 name=f"{inf['type']} - {inf['timestamp'][:10]}",
-                value=f"**Grund:** {inf['reason']}\n**Von:** {mod_text}{expires}",
+                value=f"**Reason:** {inf['reason']}\n**By:** {mod_text}{expires}",
                 inline=False,
             )
-        embed.set_footer(text=f"{len(infractions)} Infractions insgesamt")
+        embed.set_footer(text=f"{len(infractions)} infractions total")
         await interaction.followup.send(embed=embed, ephemeral=True)
 
 
@@ -236,17 +236,17 @@ class ManageSelf(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    @app_commands.command(name="manage-self", description="Verwalte deinen eigenen Staff-Status")
+    @app_commands.command(name="manage-self", description="Manage your own staff status")
     @require_staff()
     async def manage_self(self, interaction: discord.Interaction):
         config = await database.get_config(str(interaction.guild_id))
         embed = discord.Embed(
-            title="👤 Staff Selbstverwaltung",
-            description="Wähle eine Aktion für deinen Account:",
+            title="👤 Staff Self-Management",
+            description="Choose an action for your account:",
             color=0x5865F2,
             timestamp=datetime.now(timezone.utc),
         )
-        embed.set_footer(text=f"Angefragt von {interaction.user.display_name}")
+        embed.set_footer(text=f"Requested by {interaction.user.display_name}")
         await interaction.response.send_message(embed=embed, view=ManageSelfView(config), ephemeral=True)
 
 

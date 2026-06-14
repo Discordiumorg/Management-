@@ -20,9 +20,9 @@ def warning_embed(title: str, description: str) -> discord.Embed:
 
 def log_embed(action: str, target: discord.Member, moderator: discord.Member, reason: str, color: int, **extra) -> discord.Embed:
     embed = discord.Embed(title=f"📋 {action}", color=color, timestamp=datetime.now(timezone.utc))
-    embed.add_field(name="Benutzer", value=f"{target.mention} (`{target.id}`)", inline=True)
+    embed.add_field(name="User", value=f"{target.mention} (`{target.id}`)", inline=True)
     embed.add_field(name="Moderator", value=f"{moderator.mention} (`{moderator.id}`)", inline=True)
-    embed.add_field(name="Grund", value=reason, inline=False)
+    embed.add_field(name="Reason", value=reason, inline=False)
     for k, v in extra.items():
         embed.add_field(name=k, value=str(v), inline=True)
     embed.set_thumbnail(url=target.display_avatar.url)

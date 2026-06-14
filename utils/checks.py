@@ -16,7 +16,7 @@ async def is_leader_or_admin(interaction: discord.Interaction) -> bool:
 
 
 async def is_hr_or_above(interaction: discord.Interaction) -> bool:
-    """HR, Leader oder Admin dürfen Bewerbungen bearbeiten."""
+    """HR, Leader or Admin may review applications."""
     config = await database.get_config(str(interaction.guild_id))
     hr_roles = json.loads(config.get("hr_roles_json", "[]"))
     leader_roles = json.loads(config.get("leader_roles_json", "[]"))
@@ -44,7 +44,7 @@ def require_leader():
     async def predicate(interaction: discord.Interaction) -> bool:
         if not await is_leader_or_admin(interaction):
             await interaction.response.send_message(
-                embed=discord.Embed(title="❌ Kein Zugriff", description="Du benötigst eine Leader- oder Admin-Rolle.", color=0xE74C3C),
+                embed=discord.Embed(title="❌ No Access", description="You need a Leader or Admin role.", color=0xE74C3C),
                 ephemeral=True
             )
             return False
@@ -56,7 +56,7 @@ def require_staff():
     async def predicate(interaction: discord.Interaction) -> bool:
         if not await is_staff(interaction):
             await interaction.response.send_message(
-                embed=discord.Embed(title="❌ Kein Zugriff", description="Du musst ein Mitarbeiter sein.", color=0xE74C3C),
+                embed=discord.Embed(title="❌ No Access", description="You must be a staff member.", color=0xE74C3C),
                 ephemeral=True
             )
             return False

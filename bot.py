@@ -30,23 +30,23 @@ class StaffBot(commands.Bot):
         for cog in COGS:
             try:
                 await self.load_extension(cog)
-                print(f"[✓] Cog geladen: {cog}")
+                print(f"[✓] Cog loaded: {cog}")
             except Exception as e:
-                print(f"[✗] Fehler beim Laden von {cog}: {e}")
+                print(f"[✗] Failed to load {cog}: {e}")
 
         guild_id = os.getenv("GUILD_ID")
         if guild_id:
             guild = discord.Object(id=int(guild_id))
             self.tree.copy_global_to(guild=guild)
             await self.tree.sync(guild=guild)
-            print(f"[✓] Slash Commands zu Guild {guild_id} synchronisiert")
+            print(f"[✓] Slash commands synced to guild {guild_id}")
         else:
             await self.tree.sync()
-            print("[✓] Slash Commands global synchronisiert")
+            print("[✓] Slash commands synced globally")
 
     async def on_ready(self):
-        print(f"[✓] Bot eingeloggt als {self.user} (ID: {self.user.id})")
-        print(f"[✓] In {len(self.guilds)} Server(n) aktiv")
+        print(f"[✓] Logged in as {self.user} (ID: {self.user.id})")
+        print(f"[✓] Active in {len(self.guilds)} server(s)")
         await self.change_presence(
             activity=discord.Activity(type=discord.ActivityType.watching, name="Staff Management")
         )
@@ -55,8 +55,8 @@ class StaffBot(commands.Bot):
         if isinstance(error, discord.app_commands.CheckFailure):
             return
         embed = discord.Embed(
-            title="❌ Fehler",
-            description=f"Ein Fehler ist aufgetreten: `{error}`",
+            title="❌ Error",
+            description=f"An error occurred: `{error}`",
             color=0xE74C3C,
         )
         try:
@@ -71,7 +71,7 @@ class StaffBot(commands.Bot):
 async def main():
     token = os.getenv("DISCORD_TOKEN")
     if not token:
-        print("FEHLER: DISCORD_TOKEN nicht in .env gesetzt!")
+        print("ERROR: DISCORD_TOKEN not set in .env!")
         return
 
     bot = StaffBot()

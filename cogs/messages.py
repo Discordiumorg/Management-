@@ -18,19 +18,19 @@ class Messages(commands.Cog):
             return
         await database.increment_message_count(str(message.author.id), str(message.guild.id))
 
-    messages_group = app_commands.Group(name="messages", description="Nachrichtenstatistiken")
+    messages_group = app_commands.Group(name="messages", description="Message statistics")
 
-    @messages_group.command(name="leaderboard", description="Top 10 Mitarbeiter nach Nachrichten")
+    @messages_group.command(name="leaderboard", description="Top 10 staff members by messages")
     @require_staff()
     async def leaderboard(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         entries = await database.get_leaderboard(str(interaction.guild_id))
         if not entries:
-            await interaction.followup.send(embed=info_embed("Leaderboard", "Noch keine Nachrichten aufgezeichnet."), ephemeral=True)
+            await interaction.followup.send(embed=info_embed("Leaderboard", "No messages recorded yet."), ephemeral=True)
             return
 
         embed = discord.Embed(
-            title="🏆 Nachrichten Leaderboard",
+            title="🏆 Messages Leaderboard",
             color=0xF1C40F,
             timestamp=datetime.now(timezone.utc),
         )
@@ -40,34 +40,34 @@ class Messages(commands.Cog):
             member = interaction.guild.get_member(int(entry["user_id"]))
             name = member.display_name if member else f"ID: {entry['user_id']}"
             medal = medals[i] if i < 3 else f"`{i+1}.`"
-            lines.append(f"{medal} **{name}** — {entry['count']:,} Nachrichten")
+            lines.append(f"{medal} **{name}** — {entry['count']:,} messages")
 
         embed.description = "\n".join(lines)
         await interaction.followup.send(embed=embed, ephemeral=True)
 
-    @messages_group.command(name="self", description="Zeige deine eigenen Nachrichtenzahl")
+    @messages_group.command(name="self", description="Show your own message count")
     @require_staff()
     async def messages_self(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         count = await database.get_message_count(str(interaction.user.id), str(interaction.guild_id))
         embed = discord.Embed(
-            title="💬 Deine Nachrichten",
-            description=f"Du hast **{count:,}** Nachrichten in diesem Server gesendet.",
+            title="💬 Your Messages",
+            description=f"You have sent **{count:,}** messages in this server.",
             color=0x3498DB,
             timestamp=datetime.now(timezone.utc),
         )
         embed.set_thumbnail(url=interaction.user.display_avatar.url)
         await interaction.followup.send(embed=embed, ephemeral=True)
 
-    @messages_group.command(name="user", description="Zeige die Nachrichtenzahl eines Nutzers")
-    @app_commands.describe(user="Der Nutzer")
+    @messages_group.command(name="user", description="Show the message count of a user")
+    @app_commands.describe(user="The user")
     @require_staff()
     async def messages_user(self, interaction: discord.Interaction, user: discord.Member):
         await interaction.response.defer(ephemeral=True)
         count = await database.get_message_count(str(user.id), str(interaction.guild_id))
         embed = discord.Embed(
-            title=f"💬 Nachrichten von {user.display_name}",
-            description=f"{user.mention} hat **{count:,}** Nachrichten in diesem Server gesendet.",
+            title=f"💬 Messages by {user.display_name}",
+            description=f"{user.mention} has sent **{count:,}** messages in this server.",
             color=0x3498DB,
             timestamp=datetime.now(timezone.utc),
         )

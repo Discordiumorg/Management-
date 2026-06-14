@@ -73,9 +73,16 @@ async def init_db():
                 staff_roles_json TEXT DEFAULT '[]',
                 leader_roles_json TEXT DEFAULT '[]',
                 admin_roles_json TEXT DEFAULT '[]',
+                hr_roles_json TEXT DEFAULT '[]',
                 apply_positions_json TEXT DEFAULT '[]'
             )
         """)
+        # Migration: add hr_roles_json column if missing (existing DBs)
+        try:
+            await db.execute("ALTER TABLE staff_config ADD COLUMN hr_roles_json TEXT DEFAULT '[]'")
+            await db.commit()
+        except Exception:
+            pass
         await db.commit()
 
 
@@ -109,8 +116,8 @@ async def set_config(guild_id: str, **kwargs):
             INSERT OR REPLACE INTO staff_config
             (guild_id, log_channel_id, promotion_channel_id, demotion_channel_id,
              termination_channel_id, infractions_channel_id, applications_channel_id,
-             staff_roles_json, leader_roles_json, admin_roles_json, apply_positions_json)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             staff_roles_json, leader_roles_json, admin_roles_json, hr_roles_json, apply_positions_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             guild_id,
             existing.get("log_channel_id"),
@@ -122,6 +129,7 @@ async def set_config(guild_id: str, **kwargs):
             existing.get("staff_roles_json", "[]"),
             existing.get("leader_roles_json", "[]"),
             existing.get("admin_roles_json", "[]"),
+            existing.get("hr_roles_json", "[]"),
             existing.get("apply_positions_json", "[]"),
         ))
         await db.commit()

@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 import database
 from utils.embeds import success_embed, error_embed, info_embed
-from utils.checks import is_leader_or_admin
+from utils.checks import is_hr_or_above
 
 
 class ApplicationModal(discord.ui.Modal, title="Bewerbung"):
@@ -65,32 +65,26 @@ class ApplicationModal(discord.ui.Modal, title="Bewerbung"):
         if channel_id:
             channel = guild.get_channel(int(channel_id))
             if channel:
-                embed = discord.Embed(
-                    title=f"📩 Neue Bewerbung – {self.position}",
-                    color=0x5865F2,
-                    timestamp=datetime.now(timezone.utc),
-                )
-                embed.set_author(name=str(interaction.user), icon_url=interaction.user.display_avatar.url)
-                embed.add_field(name="Bewerber", value=f"{interaction.user.mention} (`{interaction.user.id}`)", inline=True)
-                embed.add_field(name="Position", value=self.position, inline=True)
-                embed.add_field(name="Bewerbungs-ID", value=f"#{app_id}", inline=True)
-                embed.add_field(name="Name", value=answers["name"], inline=True)
-                embed.add_field(name="Alter", value=answers["age"], inline=True)
-                embed.add_field(name="Zeitzone", value=answers["timezone"], inline=True)
-                embed.add_field(name="Erfahrung", value=answers["experience"], inline=False)
-                embed.add_field(name="Motivation", value=answers["why"], inline=False)
+                embed = _build_application_embed(interaction.user, self.position, app_id, answers)
                 view = ApplicationReviewView(app_id, interaction.user.id)
                 await channel.send(embed=embed, view=view)
 
         await interaction.followup.send(
-            embed=success_embed("Bewerbung eingereicht", f"Deine Bewerbung für **{self.position}** wurde erfolgreich eingereicht. Du wirst per DM benachrichtigt."),
+            embed=success_embed(
+                "Bewerbung eingereicht",
+                f"Deine Bewerbung für **{self.position}** wurde erfolgreich eingereicht.\nDu wirst per DM benachrichtigt, sobald sie bearbeitet wurde.",
+            ),
             ephemeral=True,
         )
 
         try:
             dm_embed = discord.Embed(
                 title="📩 Bewerbung eingereicht",
-                description=f"Deine Bewerbung für **{self.position}** bei **{guild.name}** wurde eingereicht!\n\n**Bewerbungs-ID:** #{app_id}\n\nWir werden uns bald bei dir melden.",
+                description=(
+                    f"Deine Bewerbung für **{self.position}** bei **{guild.name}** wurde eingereicht!\n\n"
+                    f"**Bewerbungs-ID:** #{app_id}\n\n"
+                    "Wir werden uns bald bei dir melden."
+                ),
                 color=0x5865F2,
                 timestamp=datetime.now(timezone.utc),
             )
@@ -99,67 +93,40 @@ class ApplicationModal(discord.ui.Modal, title="Bewerbung"):
             pass
 
 
-class ApplicationReviewView(discord.ui.View):
-    def __init__(self, app_id: int, applicant_id: int):
-        super().__init__(timeout=None)
-        self.app_id = app_id
-        self.applicant_id = applicant_id
-
-    @discord.ui.button(label="Annehmen ✅", style=discord.ButtonStyle.success, custom_id="app_accept")
-    async def accept(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not await is_leader_or_admin(interaction):
-            await interaction.response.send_message(embed=error_embed("Kein Zugriff", "Du hast keine Berechtigung."), ephemeral=True)
-            return
-        await interaction.response.defer()
-        app = await database.get_application(self.app_id)
-        if not app or app["status"] != "pending":
-            await interaction.followup.send(embed=error_embed("Fehler", "Diese Bewerbung wurde bereits bearbeitet."), ephemeral=True)
-            return
-        await database.update_application_status(self.app_id, "accepted")
-
-        applicant = interaction.guild.get_member(self.applicant_id)
-        if applicant:
-            try:
-                answers = json.loads(app["answers_json"])
-                dm_embed = discord.Embed(
-                    title="🎉 Bewerbung angenommen!",
-                    description=f"Deine Bewerbung für **{app['position']}** bei **{interaction.guild.name}** wurde angenommen!\n\nWillkommen im Team! 🎊",
-                    color=0x2ECC71,
-                    timestamp=datetime.now(timezone.utc),
-                )
-                await applicant.send(embed=dm_embed)
-            except discord.Forbidden:
-                pass
-
-        embed = interaction.message.embeds[0]
-        embed.color = 0x2ECC71
-        embed.set_footer(text=f"✅ Angenommen von {interaction.user.display_name}")
-        for child in self.children:
-            child.disabled = True
-        await interaction.message.edit(embed=embed, view=self)
-
-    @discord.ui.button(label="Ablehnen ❌", style=discord.ButtonStyle.danger, custom_id="app_deny")
-    async def deny(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not await is_leader_or_admin(interaction):
-            await interaction.response.send_message(embed=error_embed("Kein Zugriff", "Du hast keine Berechtigung."), ephemeral=True)
-            return
-        await interaction.response.send_modal(DenyReasonModal(self.app_id, self.applicant_id, interaction.message, self))
+def _build_application_embed(user: discord.Member, position: str, app_id: int, answers: dict) -> discord.Embed:
+    embed = discord.Embed(
+        title=f"📩 Neue Bewerbung – {position}",
+        color=0x5865F2,
+        timestamp=datetime.now(timezone.utc),
+    )
+    embed.set_author(name=str(user), icon_url=user.display_avatar.url)
+    embed.add_field(name="Bewerber", value=f"{user.mention} (`{user.id}`)", inline=True)
+    embed.add_field(name="Position", value=position, inline=True)
+    embed.add_field(name="Bewerbungs-ID", value=f"#{app_id}", inline=True)
+    embed.add_field(name="Name", value=answers["name"], inline=True)
+    embed.add_field(name="Alter", value=answers["age"], inline=True)
+    embed.add_field(name="Zeitzone", value=answers["timezone"], inline=True)
+    embed.add_field(name="Erfahrung", value=answers["experience"], inline=False)
+    embed.add_field(name="Motivation", value=answers["why"], inline=False)
+    embed.set_footer(text="Status: Ausstehend ⏳")
+    return embed
 
 
-class DenyReasonModal(discord.ui.Modal, title="Bewerbung ablehnen"):
+class AcceptReasonModal(discord.ui.Modal, title="Bewerbung annehmen"):
     reason = discord.ui.TextInput(
-        label="Ablehnungsgrund (optional)",
+        label="Grund für die Annahme",
+        placeholder="Warum wird diese Bewerbung angenommen?",
         style=discord.TextStyle.paragraph,
-        required=False,
+        required=True,
         max_length=500,
     )
 
-    def __init__(self, app_id: int, applicant_id: int, message: discord.Message, view: ApplicationReviewView):
+    def __init__(self, app_id: int, applicant_id: int, message: discord.Message, review_view: "ApplicationReviewView"):
         super().__init__()
         self.app_id = app_id
         self.applicant_id = applicant_id
         self.message = message
-        self.review_view = view
+        self.review_view = review_view
 
     async def on_submit(self, interaction: discord.Interaction):
         await interaction.response.defer()
@@ -167,6 +134,67 @@ class DenyReasonModal(discord.ui.Modal, title="Bewerbung ablehnen"):
         if not app or app["status"] != "pending":
             await interaction.followup.send(embed=error_embed("Fehler", "Diese Bewerbung wurde bereits bearbeitet."), ephemeral=True)
             return
+
+        await database.update_application_status(self.app_id, "accepted")
+
+        applicant = interaction.guild.get_member(self.applicant_id)
+        if applicant:
+            try:
+                dm_embed = discord.Embed(
+                    title="🎉 Bewerbung angenommen!",
+                    description=(
+                        f"Deine Bewerbung für **{app['position']}** bei **{interaction.guild.name}** wurde angenommen!\n\n"
+                        f"**Begründung:** {self.reason.value}\n\n"
+                        "Willkommen im Team! 🎊"
+                    ),
+                    color=0x2ECC71,
+                    timestamp=datetime.now(timezone.utc),
+                )
+                await applicant.send(embed=dm_embed)
+            except discord.Forbidden:
+                pass
+
+        # Update embed in applications channel
+        embed = self.message.embeds[0]
+        embed.color = 0x2ECC71
+        embed.set_footer(
+            text=f"✅ Angenommen von {interaction.user.display_name} • {datetime.now(timezone.utc).strftime('%d.%m.%Y %H:%M')} UTC"
+        )
+        embed.add_field(name="✅ Annahme-Begründung", value=self.reason.value, inline=False)
+
+        for child in self.review_view.children:
+            child.disabled = True
+        await self.message.edit(embed=embed, view=self.review_view)
+
+        await interaction.followup.send(
+            embed=success_embed("Angenommen", f"Bewerbung **#{self.app_id}** wurde angenommen." + (f" {applicant.mention} wurde per DM benachrichtigt." if applicant else "")),
+            ephemeral=True,
+        )
+
+
+class DenyReasonModal(discord.ui.Modal, title="Bewerbung ablehnen"):
+    reason = discord.ui.TextInput(
+        label="Ablehnungsgrund",
+        placeholder="Warum wird diese Bewerbung abgelehnt?",
+        style=discord.TextStyle.paragraph,
+        required=True,
+        max_length=500,
+    )
+
+    def __init__(self, app_id: int, applicant_id: int, message: discord.Message, review_view: "ApplicationReviewView"):
+        super().__init__()
+        self.app_id = app_id
+        self.applicant_id = applicant_id
+        self.message = message
+        self.review_view = review_view
+
+    async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        app = await database.get_application(self.app_id)
+        if not app or app["status"] != "pending":
+            await interaction.followup.send(embed=error_embed("Fehler", "Diese Bewerbung wurde bereits bearbeitet."), ephemeral=True)
+            return
+
         await database.update_application_status(self.app_id, "denied")
 
         applicant = interaction.guild.get_member(self.applicant_id)
@@ -174,8 +202,10 @@ class DenyReasonModal(discord.ui.Modal, title="Bewerbung ablehnen"):
             try:
                 dm_embed = discord.Embed(
                     title="❌ Bewerbung abgelehnt",
-                    description=f"Deine Bewerbung für **{app['position']}** bei **{interaction.guild.name}** wurde leider abgelehnt." +
-                                (f"\n\n**Grund:** {self.reason.value}" if self.reason.value else ""),
+                    description=(
+                        f"Deine Bewerbung für **{app['position']}** bei **{interaction.guild.name}** wurde leider abgelehnt.\n\n"
+                        f"**Begründung:** {self.reason.value}"
+                    ),
                     color=0xE74C3C,
                     timestamp=datetime.now(timezone.utc),
                 )
@@ -185,10 +215,61 @@ class DenyReasonModal(discord.ui.Modal, title="Bewerbung ablehnen"):
 
         embed = self.message.embeds[0]
         embed.color = 0xE74C3C
-        embed.set_footer(text=f"❌ Abgelehnt von {interaction.user.display_name}")
+        embed.set_footer(
+            text=f"❌ Abgelehnt von {interaction.user.display_name} • {datetime.now(timezone.utc).strftime('%d.%m.%Y %H:%M')} UTC"
+        )
+        embed.add_field(name="❌ Ablehnungs-Begründung", value=self.reason.value, inline=False)
+
         for child in self.review_view.children:
             child.disabled = True
         await self.message.edit(embed=embed, view=self.review_view)
+
+        await interaction.followup.send(
+            embed=success_embed("Abgelehnt", f"Bewerbung **#{self.app_id}** wurde abgelehnt." + (f" {applicant.mention} wurde per DM benachrichtigt." if applicant else "")),
+            ephemeral=True,
+        )
+
+
+class ApplicationReviewView(discord.ui.View):
+    def __init__(self, app_id: int, applicant_id: int):
+        super().__init__(timeout=None)
+        self.app_id = app_id
+        self.applicant_id = applicant_id
+
+    async def _check_permission(self, interaction: discord.Interaction) -> bool:
+        if not await is_hr_or_above(interaction):
+            await interaction.response.send_message(
+                embed=error_embed("Kein Zugriff", "Du benötigst eine HR-, Leader- oder Admin-Rolle um Bewerbungen zu bearbeiten."),
+                ephemeral=True,
+            )
+            return False
+        return True
+
+    async def _check_still_pending(self, interaction: discord.Interaction) -> bool:
+        app = await database.get_application(self.app_id)
+        if not app or app["status"] != "pending":
+            await interaction.response.send_message(
+                embed=error_embed("Bereits bearbeitet", "Diese Bewerbung wurde bereits angenommen oder abgelehnt."),
+                ephemeral=True,
+            )
+            return False
+        return True
+
+    @discord.ui.button(label="Annehmen", style=discord.ButtonStyle.success, emoji="✅", custom_id="app_accept")
+    async def accept(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self._check_permission(interaction):
+            return
+        if not await self._check_still_pending(interaction):
+            return
+        await interaction.response.send_modal(AcceptReasonModal(self.app_id, self.applicant_id, interaction.message, self))
+
+    @discord.ui.button(label="Ablehnen", style=discord.ButtonStyle.danger, emoji="❌", custom_id="app_deny")
+    async def deny(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self._check_permission(interaction):
+            return
+        if not await self._check_still_pending(interaction):
+            return
+        await interaction.response.send_modal(DenyReasonModal(self.app_id, self.applicant_id, interaction.message, self))
 
 
 class PositionSelectView(discord.ui.View):
@@ -225,24 +306,19 @@ class Apply(commands.Cog):
             return
 
         embed = discord.Embed(
-            title="📩 Bewerbung",
+            title="📩 Jetzt bewerben",
             description="Wähle die Position, für die du dich bewerben möchtest:",
             color=0x5865F2,
             timestamp=datetime.now(timezone.utc),
         )
         for pos in positions:
-            embed.add_field(name=pos["name"], value=pos.get("description", "Keine Beschreibung"), inline=False)
+            embed.add_field(name=f"🔹 {pos['name']}", value=pos.get("description", "Keine Beschreibung"), inline=False)
 
         await interaction.response.send_message(
             embed=embed,
             view=PositionSelectView(positions, config),
             ephemeral=True,
         )
-
-    @commands.Cog.listener()
-    async def on_ready(self):
-        # Re-register persistent views so buttons still work after restart
-        pass
 
 
 async def setup(bot: commands.Bot):

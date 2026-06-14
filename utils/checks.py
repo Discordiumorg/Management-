@@ -15,6 +15,19 @@ async def is_leader_or_admin(interaction: discord.Interaction) -> bool:
     return bool(user_role_ids & allowed)
 
 
+async def is_hr_or_above(interaction: discord.Interaction) -> bool:
+    """HR, Leader oder Admin dürfen Bewerbungen bearbeiten."""
+    config = await database.get_config(str(interaction.guild_id))
+    hr_roles = json.loads(config.get("hr_roles_json", "[]"))
+    leader_roles = json.loads(config.get("leader_roles_json", "[]"))
+    admin_roles = json.loads(config.get("admin_roles_json", "[]"))
+    allowed = set(hr_roles + leader_roles + admin_roles)
+    user_role_ids = {str(r.id) for r in interaction.user.roles}
+    if interaction.user.guild_permissions.administrator:
+        return True
+    return bool(user_role_ids & allowed)
+
+
 async def is_staff(interaction: discord.Interaction) -> bool:
     config = await database.get_config(str(interaction.guild_id))
     staff_roles = json.loads(config.get("staff_roles_json", "[]"))

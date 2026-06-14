@@ -79,6 +79,20 @@ class Permissions(commands.Cog):
         await database.set_config(str(interaction.guild_id), applications_channel_id=str(channel.id))
         await interaction.response.send_message(embed=success_embed("Bewerbungs-Kanal gesetzt", f"{channel.mention}"), ephemeral=True)
 
+    @perms_group.command(name="add-hr", description="Füge eine HR-Rolle hinzu (darf Bewerbungen bearbeiten)")
+    @app_commands.describe(role="Die Rolle, die HR-Rechte für Bewerbungen erhalten soll")
+    @app_commands.default_permissions(administrator=True)
+    async def add_hr(self, interaction: discord.Interaction, role: discord.Role):
+        config = await database.get_config(str(interaction.guild_id))
+        roles = json.loads(config.get("hr_roles_json", "[]"))
+        if str(role.id) not in roles:
+            roles.append(str(role.id))
+            await database.set_config(str(interaction.guild_id), hr_roles_json=json.dumps(roles))
+        await interaction.response.send_message(
+            embed=success_embed("HR-Rolle hinzugefügt", f"{role.mention} kann jetzt Bewerbungen annehmen und ablehnen."),
+            ephemeral=True,
+        )
+
     @perms_group.command(name="add-position", description="Füge eine bewerbbare Position hinzu (nur Admins)")
     @app_commands.describe(name="Name der Position", description="Beschreibung der Position")
     @app_commands.default_permissions(administrator=True)
@@ -119,6 +133,7 @@ class Permissions(commands.Cog):
         embed.add_field(name="Bewerbungs-Kanal", value=channel_mention(config.get("applications_channel_id")), inline=True)
         embed.add_field(name="Staff-Rollen", value=roles_list(config.get("staff_roles_json")), inline=False)
         embed.add_field(name="Leader-Rollen", value=roles_list(config.get("leader_roles_json")), inline=False)
+        embed.add_field(name="HR-Rollen", value=roles_list(config.get("hr_roles_json")), inline=False)
         positions = json.loads(config.get("apply_positions_json", "[]"))
         pos_text = "\n".join(f"• **{p['name']}** – {p['description']}" for p in positions) or "*Keine*"
         embed.add_field(name="Bewerbbare Positionen", value=pos_text, inline=False)

@@ -263,7 +263,7 @@ class ApplicationReviewView(discord.ui.View):
             return
         await interaction.response.send_modal(AcceptReasonModal(self.app_id, self.applicant_id, interaction.message, self))
 
-    @discord.ui.button(label="Ablehnen", style=discord.ButtonStyle.danger, emoji="❌", custom_id="app_deny")
+    @discord.ui.button(label="Deny", style=discord.ButtonStyle.danger, emoji="❌", custom_id="app_deny")
     async def deny(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_permission(interaction):
             return
@@ -280,7 +280,7 @@ class PositionSelectView(discord.ui.View):
             discord.SelectOption(label=p["name"][:100], description=p.get("description", "")[:100])
             for p in positions[:25]
         ]
-        select = discord.ui.Select(placeholder="Wähle eine Position...", options=options)
+        select = discord.ui.Select(placeholder="Choose a position...", options=options)
         select.callback = self.select_callback
         self.add_item(select)
 

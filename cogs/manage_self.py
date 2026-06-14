@@ -7,6 +7,7 @@ from datetime import datetime, timezone, timedelta
 import database
 from utils.embeds import success_embed, error_embed, info_embed, log_embed
 from utils.checks import require_staff
+from utils import cross_server
 
 
 def parse_duration(duration_str: str) -> timedelta | None:
@@ -70,15 +71,23 @@ class ResignModal(discord.ui.Modal, title="Resign"):
         except discord.Forbidden:
             pass
 
+        # Also remove roles on linked server (Work Server)
+        linked_guild_name = await cross_server.remove_linked_staff_roles(
+            interaction.client, config, member.id, f"Resignation: {self.reason.value}"
+        )
+
         log_channel_id = config.get("log_channel_id")
         if log_channel_id:
             channel = guild.get_channel(int(log_channel_id))
             if channel:
                 embed = log_embed("Resignation (Resign)", member, member, self.reason.value, 0xE74C3C)
+                if linked_guild_name:
+                    embed.add_field(name="Cross-Server", value=f"Roles removed in **{linked_guild_name}**", inline=False)
                 await channel.send(embed=embed)
 
+        extra = f"\nRoles also removed from **{linked_guild_name}**." if linked_guild_name else ""
         await interaction.followup.send(
-            embed=success_embed("Resignation submitted", "Your resignation has been successfully processed. All staff roles have been removed."),
+            embed=success_embed("Resignation submitted", f"Your resignation has been successfully processed. All staff roles have been removed.{extra}"),
             ephemeral=True,
         )
 
@@ -122,7 +131,12 @@ class LOARequestModal(discord.ui.Modal, title="Request Leave of Absence"):
         try:
             current_nick = member.display_name
             if not current_nick.startswith("[LOA] "):
-                await member.edit(nick=f"[LOA] {current_nick}"[:32], reason="LOA started")
+                new_nick = f"[LOA] {current_nick}"[:32]
+                await member.edit(nick=new_nick, reason="LOA started")
+                # Mirror nickname on linked server
+                await cross_server.update_linked_nickname(
+                    interaction.client, config, member.id, new_nick, "LOA started (cross-server sync)"
+                )
         except discord.Forbidden:
             pass
 
@@ -176,7 +190,11 @@ class LOAView(discord.ui.View):
         try:
             current_nick = member.display_name
             if current_nick.startswith("[LOA] "):
-                await member.edit(nick=current_nick[6:] or None, reason="LOA ended")
+                clean_nick = current_nick[6:] or None
+                await member.edit(nick=clean_nick, reason="LOA ended")
+                await cross_server.update_linked_nickname(
+                    interaction.client, config, member.id, clean_nick, "LOA ended (cross-server sync)"
+                )
         except discord.Forbidden:
             pass
 

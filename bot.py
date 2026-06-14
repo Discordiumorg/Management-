@@ -18,6 +18,13 @@ COGS = [
 ]
 
 
+def get_guild_ids() -> list[int]:
+    """Read GUILD_IDS (comma-separated) or fall back to GUILD_ID from .env."""
+    raw = os.getenv("GUILD_IDS") or os.getenv("GUILD_ID") or ""
+    ids = [int(g.strip()) for g in raw.split(",") if g.strip().isdigit()]
+    return ids
+
+
 class StaffBot(commands.Bot):
     def __init__(self):
         intents = discord.Intents.default()
@@ -34,19 +41,20 @@ class StaffBot(commands.Bot):
             except Exception as e:
                 print(f"[✗] Failed to load {cog}: {e}")
 
-        guild_id = os.getenv("GUILD_ID")
-        if guild_id:
-            guild = discord.Object(id=int(guild_id))
-            self.tree.copy_global_to(guild=guild)
-            await self.tree.sync(guild=guild)
-            print(f"[✓] Slash commands synced to guild {guild_id}")
+        guild_ids = get_guild_ids()
+        if guild_ids:
+            for gid in guild_ids:
+                guild = discord.Object(id=gid)
+                self.tree.copy_global_to(guild=guild)
+                await self.tree.sync(guild=guild)
+                print(f"[✓] Slash commands synced to guild {gid}")
         else:
             await self.tree.sync()
             print("[✓] Slash commands synced globally")
 
     async def on_ready(self):
         print(f"[✓] Logged in as {self.user} (ID: {self.user.id})")
-        print(f"[✓] Active in {len(self.guilds)} server(s)")
+        print(f"[✓] Active in {len(self.guilds)} server(s): {[g.name for g in self.guilds]}")
         await self.change_presence(
             activity=discord.Activity(type=discord.ActivityType.watching, name="Staff Management")
         )

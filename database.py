@@ -74,15 +74,21 @@ async def init_db():
                 leader_roles_json TEXT DEFAULT '[]',
                 admin_roles_json TEXT DEFAULT '[]',
                 hr_roles_json TEXT DEFAULT '[]',
-                apply_positions_json TEXT DEFAULT '[]'
+                apply_positions_json TEXT DEFAULT '[]',
+                linked_guild_id TEXT,
+                linked_staff_roles_json TEXT DEFAULT '[]'
             )
         """)
-        # Migration: add hr_roles_json column if missing (existing DBs)
-        try:
-            await db.execute("ALTER TABLE staff_config ADD COLUMN hr_roles_json TEXT DEFAULT '[]'")
-            await db.commit()
-        except Exception:
-            pass
+        # Migrations for existing DBs
+        for col, default in [
+            ("hr_roles_json", "'[]'"),
+            ("linked_guild_id", "NULL"),
+            ("linked_staff_roles_json", "'[]'"),
+        ]:
+            try:
+                await db.execute(f"ALTER TABLE staff_config ADD COLUMN {col} TEXT DEFAULT {default}")
+            except Exception:
+                pass
         await db.commit()
 
 
@@ -103,7 +109,10 @@ async def get_config(guild_id: str) -> dict:
                     "staff_roles_json": "[]",
                     "leader_roles_json": "[]",
                     "admin_roles_json": "[]",
+                    "hr_roles_json": "[]",
                     "apply_positions_json": "[]",
+                    "linked_guild_id": None,
+                    "linked_staff_roles_json": "[]",
                 }
             return dict(row)
 
@@ -116,8 +125,9 @@ async def set_config(guild_id: str, **kwargs):
             INSERT OR REPLACE INTO staff_config
             (guild_id, log_channel_id, promotion_channel_id, demotion_channel_id,
              termination_channel_id, infractions_channel_id, applications_channel_id,
-             staff_roles_json, leader_roles_json, admin_roles_json, hr_roles_json, apply_positions_json)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             staff_roles_json, leader_roles_json, admin_roles_json, hr_roles_json,
+             apply_positions_json, linked_guild_id, linked_staff_roles_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             guild_id,
             existing.get("log_channel_id"),
@@ -131,6 +141,8 @@ async def set_config(guild_id: str, **kwargs):
             existing.get("admin_roles_json", "[]"),
             existing.get("hr_roles_json", "[]"),
             existing.get("apply_positions_json", "[]"),
+            existing.get("linked_guild_id"),
+            existing.get("linked_staff_roles_json", "[]"),
         ))
         await db.commit()
 
@@ -256,7 +268,6 @@ async def get_application(app_id: int) -> dict | None:
 
 
 async def reset_all_infractions(guild_id: str) -> int:
-    """Delete all infractions for a guild. Returns number of deleted rows."""
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute(
             "DELETE FROM infractions WHERE guild_id = ?", (guild_id,)

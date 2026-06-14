@@ -7,6 +7,7 @@ from datetime import datetime, timezone, timedelta
 import database
 from utils.embeds import success_embed, error_embed, info_embed, log_embed
 from utils.checks import require_leader, is_leader_or_admin
+from utils import cross_server
 
 
 INFRACTION_TYPES = {
@@ -198,15 +199,31 @@ class TerminateModal(discord.ui.Modal, title="Terminate staff member"):
         except discord.Forbidden:
             pass
 
+        # Cross-server: remove roles and kick from linked server too
+        linked_guild_name = await cross_server.remove_linked_staff_roles(
+            interaction.client, config, target.id, f"Terminated: {self.reason.value}"
+        )
+        linked_kicked = await cross_server.kick_from_linked(
+            interaction.client, config, target.id, f"Terminated: {self.reason.value}"
+        )
+
+        linked_guild = None
+        linked_guild_id = config.get("linked_guild_id")
+        if linked_guild_id:
+            linked_guild = interaction.client.get_guild(int(linked_guild_id))
+
         dm_embed = discord.Embed(
             title="🚫 You have been terminated",
-            description=f"You have been terminated from **{guild.name}**.\n\n**Reason:** {self.reason.value}",
+            description=f"You have been terminated from **{guild.name}**.\n\n**Reason:** {self.reason.value}" +
+                        (f"\n\nYou have also been removed from **{linked_guild.name if linked_guild else 'the linked server'}**." if linked_kicked else ""),
             color=0xE74C3C,
             timestamp=datetime.now(timezone.utc),
         )
         await send_dm(target, dm_embed)
 
         log_embed_obj = log_embed("Termination (Terminate)", target, interaction.user, self.reason.value, 0xE74C3C)
+        if linked_guild_name:
+            log_embed_obj.add_field(name="Cross-Server", value=f"Roles removed & kicked from **{linked_guild_name}**", inline=False)
         await send_to_channel(guild, config.get("termination_channel_id"), log_embed_obj)
         await send_to_channel(guild, config.get("log_channel_id"), log_embed_obj)
 
@@ -215,8 +232,9 @@ class TerminateModal(discord.ui.Modal, title="Terminate staff member"):
         except discord.Forbidden:
             pass
 
+        cross_note = f" Also removed from **{linked_guild_name}**." if linked_guild_name else ""
         await interaction.followup.send(
-            embed=success_embed("Terminated", f"{target.mention} has been terminated and kicked from the server."),
+            embed=success_embed("Terminated", f"{target.mention} has been terminated and kicked from the server.{cross_note}"),
             ephemeral=True,
         )
 

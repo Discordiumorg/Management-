@@ -106,6 +106,43 @@ class Permissions(commands.Cog):
             ephemeral=True,
         )
 
+    @perms_group.command(name="set-linked-server", description="Link a second server (Work Server) for cross-server actions (admins only)")
+    @app_commands.describe(guild_id="The ID of the Work Server to link")
+    @app_commands.default_permissions(administrator=True)
+    async def set_linked_server(self, interaction: discord.Interaction, guild_id: str):
+        if not guild_id.isdigit():
+            await interaction.response.send_message(embed=error_embed("Invalid ID", "Please provide a valid numeric server ID."), ephemeral=True)
+            return
+        linked = interaction.client.get_guild(int(guild_id))
+        if not linked:
+            await interaction.response.send_message(
+                embed=error_embed("Server not found", "The bot is not in that server or the ID is wrong. Make sure the bot is invited to both servers."),
+                ephemeral=True,
+            )
+            return
+        await database.set_config(str(interaction.guild_id), linked_guild_id=guild_id)
+        await interaction.response.send_message(
+            embed=success_embed("Linked server set", f"**{linked.name}** is now the linked Work Server.\n\nTerminations, Resignations and LOA will now also be applied there."),
+            ephemeral=True,
+        )
+
+    @perms_group.command(name="add-linked-role", description="Add a staff role from the Work Server to sync (admins only)")
+    @app_commands.describe(role_id="Role ID from the Work Server that should be removed on terminate/resign")
+    @app_commands.default_permissions(administrator=True)
+    async def add_linked_role(self, interaction: discord.Interaction, role_id: str):
+        if not role_id.isdigit():
+            await interaction.response.send_message(embed=error_embed("Invalid ID", "Please provide a valid numeric role ID."), ephemeral=True)
+            return
+        config = await database.get_config(str(interaction.guild_id))
+        roles = json.loads(config.get("linked_staff_roles_json", "[]"))
+        if role_id not in roles:
+            roles.append(role_id)
+            await database.set_config(str(interaction.guild_id), linked_staff_roles_json=json.dumps(roles))
+        await interaction.response.send_message(
+            embed=success_embed("Linked role added", f"Role `{role_id}` from the Work Server will be removed on termination/resignation."),
+            ephemeral=True,
+        )
+
     @perms_group.command(name="list", description="Show all configurations (admins only)")
     @app_commands.default_permissions(administrator=True)
     async def list_config(self, interaction: discord.Interaction):
@@ -137,6 +174,18 @@ class Permissions(commands.Cog):
         positions = json.loads(config.get("apply_positions_json", "[]"))
         pos_text = "\n".join(f"• **{p['name']}** – {p['description']}" for p in positions) or "*None*"
         embed.add_field(name="Open Positions", value=pos_text, inline=False)
+
+        linked_guild_id = config.get("linked_guild_id")
+        if linked_guild_id:
+            linked_guild = interaction.client.get_guild(int(linked_guild_id))
+            linked_name = linked_guild.name if linked_guild else f"ID: {linked_guild_id}"
+            linked_role_ids = json.loads(config.get("linked_staff_roles_json", "[]"))
+            linked_roles_text = ", ".join(f"`{rid}`" for rid in linked_role_ids) or "*None configured*"
+            embed.add_field(name="🔗 Linked Work Server", value=linked_name, inline=True)
+            embed.add_field(name="🔗 Linked Staff Roles", value=linked_roles_text, inline=True)
+        else:
+            embed.add_field(name="🔗 Linked Work Server", value="*Not set* — use `/permissions set-linked-server`", inline=False)
+
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
 

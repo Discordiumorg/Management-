@@ -86,8 +86,11 @@ async def main():
         return
 
     bot = StaffBot()
-    async with bot:
-        await bot.start(token)
+    try:
+        async with bot:
+            await bot.start(token)
+    finally:
+        await database.close_db()
 
 
 if __name__ == "__main__":

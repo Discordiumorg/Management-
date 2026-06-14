@@ -71,6 +71,8 @@ class ResignModal(discord.ui.Modal, title="Resign"):
         except discord.Forbidden:
             pass
 
+        await database.log_action(str(guild.id), str(member.id), str(member.id), "Resignation", self.reason.value)
+
         # Also remove roles on linked server (Work Server)
         linked_guild_name = await cross_server.remove_linked_staff_roles(
             interaction.client, config, member.id, f"Resignation: {self.reason.value}"
@@ -127,6 +129,7 @@ class LOARequestModal(discord.ui.Modal, title="Request Leave of Absence"):
 
         end_date = (datetime.now(timezone.utc) + delta).isoformat()
         await database.set_loa(str(member.id), str(guild.id), self.duration.value, self.reason.value, end_date)
+        await database.log_action(str(guild.id), str(member.id), str(member.id), "LOA Started", f"Duration: {self.duration.value}")
 
         try:
             current_nick = member.display_name
@@ -186,6 +189,7 @@ class LOAView(discord.ui.View):
             return
 
         await database.remove_loa(str(member.id), str(guild.id))
+        await database.log_action(str(guild.id), str(member.id), str(member.id), "LOA Ended")
 
         try:
             current_nick = member.display_name

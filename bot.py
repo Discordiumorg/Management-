@@ -15,6 +15,9 @@ COGS = [
     "cogs.permissions",
     "cogs.apply",
     "cogs.monthly_reset",
+    "cogs.roster",
+    "cogs.duty",
+    "cogs.announce",
 ]
 
 

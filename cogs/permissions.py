@@ -106,6 +106,34 @@ class Permissions(commands.Cog):
             ephemeral=True,
         )
 
+    @perms_group.command(name="set-announce-channel", description="Set the announcement channel (admins only)")
+    @app_commands.default_permissions(administrator=True)
+    async def set_announce(self, interaction: discord.Interaction, channel: discord.TextChannel):
+        await database.set_config(str(interaction.guild_id), announce_channel_id=str(channel.id))
+        await interaction.response.send_message(embed=success_embed("Announce channel set", f"{channel.mention}"), ephemeral=True)
+
+    @perms_group.command(name="set-duty-role", description="Set a role automatically assigned when staff go On Duty (admins only)")
+    @app_commands.describe(role="The role given to on-duty staff members")
+    @app_commands.default_permissions(administrator=True)
+    async def set_duty_role(self, interaction: discord.Interaction, role: discord.Role):
+        await database.set_config(str(interaction.guild_id), duty_role_id=str(role.id))
+        await interaction.response.send_message(embed=success_embed("Duty role set", f"{role.mention} will be assigned to on-duty staff."), ephemeral=True)
+
+    @perms_group.command(name="set-strike-threshold", description="Set how many strikes trigger auto-termination (admins only)")
+    @app_commands.describe(threshold="Number of strikes before auto-action (default: 3)", action="Action to take: terminate")
+    @app_commands.choices(action=[app_commands.Choice(name="Terminate", value="terminate")])
+    @app_commands.default_permissions(administrator=True)
+    async def set_strike_threshold(self, interaction: discord.Interaction, threshold: int, action: app_commands.Choice[str] = None):
+        if threshold < 1:
+            await interaction.response.send_message(embed=error_embed("Invalid", "Threshold must be at least 1."), ephemeral=True)
+            return
+        act = action.value if action else "terminate"
+        await database.set_config(str(interaction.guild_id), strike_threshold=threshold, strike_action=act)
+        await interaction.response.send_message(
+            embed=success_embed("Strike threshold set", f"After **{threshold} strikes** → automatic **{act}**."),
+            ephemeral=True,
+        )
+
     @perms_group.command(name="set-linked-server", description="Link a second server (Work Server) for cross-server actions (admins only)")
     @app_commands.describe(guild_id="The ID of the Work Server to link")
     @app_commands.default_permissions(administrator=True)

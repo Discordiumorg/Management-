@@ -85,6 +85,7 @@ class PromoteModal(discord.ui.Modal, title="Promote staff member"):
             "Promotion", target, interaction.user, self.reason.value, 0x2ECC71,
             **{"Old Role": old_role.mention, "New Role": new_role.mention}
         )
+        await database.log_action(str(guild.id), str(target.id), str(interaction.user.id), "Promotion", f"{old_role.name} → {new_role.name}: {self.reason.value}")
         await send_to_channel(guild, config.get("promotion_channel_id"), log_embed_obj)
         await send_to_channel(guild, config.get("log_channel_id"), log_embed_obj)
 
@@ -151,6 +152,7 @@ class DemoteModal(discord.ui.Modal, title="Demote staff member"):
             "Demotion", target, interaction.user, self.reason.value, 0xF39C12,
             **{"Old Role": old_role.mention, "New Role": new_role.mention}
         )
+        await database.log_action(str(guild.id), str(target.id), str(interaction.user.id), "Demotion", f"{old_role.name} → {new_role.name}: {self.reason.value}")
         await send_to_channel(guild, config.get("demotion_channel_id"), log_embed_obj)
         await send_to_channel(guild, config.get("log_channel_id"), log_embed_obj)
 
@@ -221,6 +223,7 @@ class TerminateModal(discord.ui.Modal, title="Terminate staff member"):
         )
         await send_dm(target, dm_embed)
 
+        await database.log_action(str(guild.id), str(target.id), str(interaction.user.id), "Termination", self.reason.value)
         log_embed_obj = log_embed("Termination (Terminate)", target, interaction.user, self.reason.value, 0xE74C3C)
         if linked_guild_name:
             log_embed_obj.add_field(name="Cross-Server", value=f"Roles removed & kicked from **{linked_guild_name}**", inline=False)
@@ -270,6 +273,7 @@ class InfractModal(discord.ui.Modal):
             str(target.id), str(guild.id), self.label_name,
             self.reason.value, str(interaction.user.id), expires_at
         )
+        await database.log_action(str(guild.id), str(target.id), str(interaction.user.id), self.label_name, self.reason.value)
 
         log_embed_obj = log_embed(
             f"Infraction: {self.label_name}", target, interaction.user, self.reason.value, 0xE67E22,
@@ -286,6 +290,47 @@ class InfractModal(discord.ui.Modal):
             timestamp=datetime.now(timezone.utc),
         )
         await send_dm(target, dm_embed)
+
+        # Auto-action on strike threshold
+        if self.label_name == "Strike":
+            threshold = int(config.get("strike_threshold") or 3)
+            strike_count = await database.count_infractions_by_type(str(target.id), str(guild.id), "Strike")
+            if strike_count >= threshold:
+                action = config.get("strike_action", "terminate")
+                auto_reason = f"Automatic action: reached {strike_count}/{threshold} strikes."
+                if action == "terminate":
+                    staff_roles = json.loads(config.get("staff_roles_json", "[]"))
+                    leader_roles = json.loads(config.get("leader_roles_json", "[]"))
+                    admin_roles = json.loads(config.get("admin_roles_json", "[]"))
+                    all_ids = set(staff_roles + leader_roles + admin_roles)
+                    roles_to_remove = [r for r in target.roles if str(r.id) in all_ids]
+                    try:
+                        if roles_to_remove:
+                            await target.remove_roles(*roles_to_remove, reason=auto_reason)
+                        await target.kick(reason=auto_reason)
+                    except discord.Forbidden:
+                        pass
+                    auto_embed = log_embed("⚙️ Auto-Termination", target, interaction.user, auto_reason, 0x8B0000,
+                                           **{"Strikes": f"{strike_count}/{threshold}"})
+                    await send_to_channel(guild, config.get("termination_channel_id"), auto_embed)
+                    await send_to_channel(guild, config.get("log_channel_id"), auto_embed)
+                    try:
+                        await target.send(embed=discord.Embed(
+                            title="🚫 Automatic Termination",
+                            description=f"You have been automatically terminated from **{guild.name}** after reaching **{strike_count} strikes**.",
+                            color=0x8B0000, timestamp=datetime.now(timezone.utc),
+                        ))
+                    except discord.Forbidden:
+                        pass
+                    await interaction.followup.send(
+                        embed=discord.Embed(
+                            title="⚙️ Auto-Termination triggered",
+                            description=f"{target.mention} reached **{strike_count}/{threshold} strikes** and has been automatically terminated.",
+                            color=0x8B0000,
+                        ),
+                        ephemeral=True,
+                    )
+                    return
 
         await interaction.followup.send(
             embed=success_embed("Infraction issued", f"{target.mention} has received a **{self.label_name}**."),

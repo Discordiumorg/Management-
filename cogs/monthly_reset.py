@@ -47,7 +47,7 @@ class MonthlyReset(commands.Cog):
                         description=(
                             f"All infractions have been reset for the new month.\n\n"
                             f"**Deleted Infractions:** {deleted}\n"
-                            f"**Datum:** <t:{int(now.timestamp())}:F>"
+                            f"**Date:** <t:{int(now.timestamp())}:F>"
                         ),
                         color=0x5865F2,
                         timestamp=now,

@@ -245,3 +245,20 @@ async def get_application(app_id: int) -> dict | None:
         async with db.execute("SELECT * FROM applications WHERE id = ?", (app_id,)) as cursor:
             row = await cursor.fetchone()
             return dict(row) if row else None
+
+
+async def reset_all_infractions(guild_id: str) -> int:
+    """Delete all infractions for a guild. Returns number of deleted rows."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute(
+            "DELETE FROM infractions WHERE guild_id = ?", (guild_id,)
+        )
+        await db.commit()
+        return cursor.rowcount
+
+
+async def get_all_guild_ids() -> list[str]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute("SELECT DISTINCT guild_id FROM staff_config") as cursor:
+            rows = await cursor.fetchall()
+            return [r[0] for r in rows]

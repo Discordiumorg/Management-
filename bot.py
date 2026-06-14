@@ -14,6 +14,7 @@ COGS = [
     "cogs.messages",
     "cogs.permissions",
     "cogs.apply",
+    "cogs.monthly_reset",
 ]
 
 
